@@ -42,7 +42,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(state.clone())
             .configure(init)
     })
-        .bind(("localhost", 8000))?
+        .bind(("localhost", 8080))?
         .run()
         .await
 }
