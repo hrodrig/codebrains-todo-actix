@@ -1,17 +1,17 @@
 use actix_web::{
     delete, get, post, put,
-    web::{Data, Json, Path},
+    web::{ Json},
     web,
     HttpResponse,
 };
 
-use sea_orm::{ActiveValue::NotSet, DeleteResult};
+use sea_orm::{ActiveValue::NotSet};
 use entity::todo;
 use entity::todo::Entity as Todo;
 use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*};
+use sea_orm::{entity::*};
 use serde::{Serialize, Deserialize};
-use std::env;
+
 
 #[derive(Debug, Clone)]
 struct AppState {

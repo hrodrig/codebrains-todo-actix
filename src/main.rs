@@ -1,21 +1,11 @@
 mod api;
-use actix_web::{
-    error, get, middleware, post, web, App, Error, HttpRequest, HttpResponse, HttpServer,
-    Responder, Result,
+use actix_web::{ get, web::{self, Data}, App, HttpResponse, HttpServer,
+    Responder, middleware
 };
 use api::todo_api::{create_todo, delete_todo, get_todo, list_todos, update_todo};
-use entity::todo;
-use entity::todo::Entity as Todo;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*};
-use serde::{Deserialize, Serialize};
 use std::env;
-
-#[derive(Debug, Clone)]
-struct AppState {
-    conn: DatabaseConnection,
-}
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -24,25 +14,24 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "debug");
     dotenv::dotenv().ok();
+    env_logger::init();
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
-    let host = env::var("HOST").expect("HOST is not set in .env file");
-    let port = env::var("PORT").expect("PORT is not set in .env file");
-    let server_url = format!("{}:{}", host, port);
-
     // establish connection to database and apply migrations
     // -> create post table if not exists
     let conn = sea_orm::Database::connect(&db_url).await.unwrap();
     Migrator::up(&conn, None).await.unwrap();
 
-    let state = AppState { conn };
+    let db_data = Data::new(conn);
 
     HttpServer::new(move || {
         App::new()
-            .app_data(state.clone())
+            .wrap(middleware::Logger::default())
+            .app_data(db_data.clone())
             .configure(init)
     })
-        .bind(("localhost", 8080))?
+        .bind(("localhost", 8000))?
         .run()
         .await
 }
