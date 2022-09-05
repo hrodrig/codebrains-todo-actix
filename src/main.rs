@@ -1,45 +1,52 @@
-mod api;
+use crate::repository::prelude::TodosRepository;
+use handler::prelude::todos_handler;
+mod entity;
+mod handler;
+mod repository;
 use actix_web::{ get, web::{self, Data}, App, HttpResponse, HttpServer,
     Responder, middleware
 };
-use api::todo_api::{create_todo, delete_todo, get_todo, list_todos, update_todo};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
+
 use std::env;
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().json("Hello from rust and mongoDB")
+#[derive(Debug, Clone)]
+pub struct AppState {
+    todo_repository: TodosRepository,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // ENV Setup
     std::env::set_var("RUST_LOG", "debug");
     dotenv::dotenv().ok();
     env_logger::init();
-    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
-    // establish connection to database and apply migrations
-    // -> create post table if not exists
-    let conn = sea_orm::Database::connect(&db_url).await.unwrap();
-    Migrator::up(&conn, None).await.unwrap();
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
+    let db_conn = sea_orm::Database::connect(&db_url).await.unwrap();
+    let host = std::env::var("HOST").expect("HOST is not set in .env file");
+    let port = std::env::var("PORT").expect("PORT is not set in .env file");
+    let server_url = format!("{}:{}", host, port);
 
-    let db_data = Data::new(conn);
+    // App state setup
+    let todo_repository = TodosRepository {
+        db_conn: db_conn.clone(),
+    };
+    let state = AppState { todo_repository };
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
+            .app_data(Data::new(state.clone()))
             .wrap(middleware::Logger::default())
-            .app_data(db_data.clone())
             .configure(init)
     })
-        .bind(("localhost", 8000))?
-        .run()
-        .await
+    .bind(&server_url)?;
+
+    println!("Starting server at {}", server_url);
+    server.run().await?;
+    Ok(())
 }
 
 pub fn init(cfg: &mut web::ServiceConfig) {
-    cfg.service(list_todos);
-    cfg.service(get_todo);
-    cfg.service(create_todo);
-    cfg.service(update_todo);
-    cfg.service(delete_todo);
+    cfg.service(todos_handler());
 }

@@ -1,5 +1,15 @@
-use crate::entity::{prelude::*, todos};
-use sea_orm::{DatabaseConnection, EntityTrait};
+use crate::entity::{prelude::*, todo};
+use actix_web::web::Json;
+use log::debug;
+use sea_orm::{DatabaseConnection, EntityTrait, Set, ActiveValue::NotSet};
+use sea_orm::{entity::*, query::*, DeriveEntityModel};
+use serde::{Serialize, Deserialize};
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TodoRequest {
+    pub title: String,
+    pub completed: bool,
+}
 
 #[derive(Debug, Clone)]
 pub struct TodosRepository {
@@ -7,60 +17,30 @@ pub struct TodosRepository {
 }
 
 impl TodosRepository {
-    pub async fn get_todos(&self) -> Vec<todos::Model> {
-        Todos::find()
+    pub async fn get_todos(&self) -> Vec<todo::Model> {
+        Todo::find()
             .all(&self.db_conn)
             .await
             .expect("Error while fetching all todos")
     }
 
-    pub async fn get_todo_by_id(&self, id: i32) -> Option<todos::Model> {
-        Todos::find_by_id(id)
+    pub async fn get_todo_by_id(&self, id: i32) -> Option<todo::Model> {
+        Todo::find_by_id(id)
             .one(&self.db_conn)
             .await
             .expect("Error while fetching todo by id")
     }
 
-    pub async fn create_todo(
-        &self,
-        title: String,
-        completed: bool,
-    ) -> todos::Model {
-        let todo = todos::ActiveModel {
+    pub async fn create_todo(&self, new_todo: Json<TodoRequest>) -> Option<todo::Model> {
+        let todo = todo::ActiveModel {
             id: NotSet,
-            title: Set(title),
-            completed: Set(completed),
+            title: ActiveValue::Set(new_todo.title.to_owned()),
+            completed: ActiveValue::Set(new_todo.completed.to_owned()),
         };
 
-        todo.insert(&self.db_conn)
-            .await
-            .expect("Error while creating todo")
+        let todo: todo::Model = todo.insert(&self.db_conn).await.unwrap();
+        debug!("this is a debug for todo{}", todo.title);
+        return todo.into();
     }
-
-    pub async fn update_todo(
-        &self,
-        id: i32,
-        title: String,
-        completed: bool,
-    ) -> Option<todos::Model> {
-        let todo = todos::ActiveModel {
-            id: Set(id),
-            title: Set(title),
-            completed: Set(completed),
-        };
-
-        todo.update(&self.db_conn)
-            .await
-            .expect("Error while updating todo")
-    }
-
-    pub async fn delete_todo_by_id(&self, id: i32) -> Option<todos::Model> {
-        Todos::find_by_id(id)
-            .one(&self.db_conn)
-            .await
-            .expect("Error while fetching todo by id")
-            .delete(&self.db_conn)
-            .await
-            .expect("Error while deleting todo")
-    }
+ 
 }
