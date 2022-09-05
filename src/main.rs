@@ -3,10 +3,8 @@ use handler::prelude::todos_handler;
 mod entity;
 mod handler;
 mod repository;
-use actix_web::{ get, web::{self, Data}, App, HttpResponse, HttpServer,
-    Responder, middleware
+use actix_web::{ web::{self, Data}, App, HttpServer, middleware
 };
-use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
 
 use std::env;
